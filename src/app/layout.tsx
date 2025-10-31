@@ -1,7 +1,6 @@
 export const metadata = {
-  title: "Text Printer",
-  description:
-    "Aplicación Next.js para imprimir correctamente caracteres especiales.",
+  title: "Text Printer (WebUSB)",
+  description: "Aplicación Next.js para imprimir texto mediante WebUSB.",
 };
 
 export default function RootLayout({

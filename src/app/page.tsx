@@ -1,41 +1,92 @@
 "use client";
 
-import { useRef, useState } from "react";
-import { useReactToPrint } from "react-to-print";
+import React, { useState } from "react";
 
-export default function HomePage() {
-  const [text, setText] = useState<string>(
-    "¡Hola! Éste es un párrafo con tildes y caracteres especiales: á, é, í, ó, ú, ñ, ü, ¿, ¡."
+export default function Home() {
+  const [textToPrint, setTextToPrint] = useState(
+    "Hola Mundo!\nPrueba de impresión con tildes (áéíóú) y eñes (ñÑ).\n¡Funciona!"
   );
+  const [status, setStatus] = useState("");
 
-  const printRef = useRef<HTMLDivElement>(null);
+  // 🔌 Solicitar conexión al dispositivo USB
+  const connectToPrinter = async () => {
+    try {
+      setStatus("Solicitando acceso al dispositivo...");
+      const device = await navigator.usb.requestDevice({
+        filters: [{ vendorId: 0x04b8 }], // Epson Vendor ID
+      });
 
-  const handlePrint = useReactToPrint({
-    content: () => printRef.current,
-    documentTitle: "texto-impresion",
-  } as any);
+      await device.open();
+      if (device.configuration === null) {
+        await device.selectConfiguration(1);
+      }
+      await device.claimInterface(0);
+
+      setStatus(`Conectado a: ${device.productName}`);
+      return device;
+    } catch (error: any) {
+      setStatus("Error al conectar: " + error.message);
+      console.error(error);
+      throw error;
+    }
+  };
+
+  // 🖨️ Enviar texto al dispositivo
+  const printWithWebUSB = async () => {
+    try {
+      const device = await connectToPrinter();
+
+      // Convertir texto a bytes ESC/POS
+      const encoder = new TextEncoder();
+      const data = encoder.encode(textToPrint + "\n\n\n\x1D\x56\x41"); // \x1D\x56\x41 = cortar papel (si aplica)
+
+      await device.transferOut(1, data); // endpoint 1 = salida típica ESC/POS
+
+      setStatus("Texto enviado correctamente a la impresora.");
+      await device.close();
+    } catch (error: any) {
+      console.error(error);
+      setStatus("Error al imprimir: " + error.message);
+    }
+  };
 
   return (
-    <main className="flex flex-col items-center justify-center min-h-screen p-4 bg-white text-gray-800">
-      <h1 className="text-2xl font-bold mb-4">🖨️ Text Printer</h1>
+    <div style={{ padding: "20px", maxWidth: "800px", margin: "auto" }}>
+      <h1>🖨️ Impresora de Texto</h1>
+      <p>Conecta tu impresora matricial y haz clic en imprimir.</p>
 
       <textarea
-        value={text}
-        onChange={(e) => setText(e.target.value)}
-        rows={8}
-        className="w-full max-w-2xl border border-gray-400 p-3 rounded-md text-lg font-mono"
-      />
-
-      <div ref={printRef} className="hidden print:block mt-8">
-        <pre className="font-mono text-lg whitespace-pre-wrap">{text}</pre>
-      </div>
+        value={textToPrint}
+        onChange={(e) => setTextToPrint(e.target.value)}
+        rows={10}
+        cols={80}
+        style={{
+          width: "100%",
+          padding: "10px",
+          fontSize: "16px",
+          fontFamily: "monospace",
+          marginBottom: "20px",
+          border: "1px solid #ccc",
+          borderRadius: "4px",
+        }}
+      ></textarea>
 
       <button
-        onClick={handlePrint}
-        className="mt-6 bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700"
+        onClick={printWithWebUSB}
+        style={{
+          padding: "10px 20px",
+          fontSize: "18px",
+          backgroundColor: "#0070f3",
+          color: "white",
+          border: "none",
+          borderRadius: "5px",
+          cursor: "pointer",
+        }}
       >
         Imprimir
       </button>
-    </main>
+
+      <p style={{ marginTop: "15px", fontStyle: "italic" }}>{status}</p>
+    </div>
   );
 }
